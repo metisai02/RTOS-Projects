@@ -22,12 +22,20 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdbool.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+uint8_t f_recei_1[50];
+uint8_t f_recei_2[50];
+typedef enum
+{
+	overflow = 0,
+	wait,
+	trans
+}state_t;
+state_t state;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -138,7 +146,7 @@ int main(void)
 
   /* Create the queue(s) */
   /* definition and creation of myQueue01 */
-  osMessageQDef(myQueue01, 10, uint16_t);
+  osMessageQDef(myQueue01, 10, sizeof(f_recei_1));
   myQueue01Handle = osMessageCreate(osMessageQ(myQueue01), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -164,6 +172,12 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, 50);
+  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, 50);
+  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -357,7 +371,15 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+	if(huart->Instance == USART1)
+		xSemaphoreGiveFromISR(myBinarySem01Handle, &xHigherPriorityTaskWoken);
+	else if (huart->Instance == USART2)
+		xSemaphoreGiveFromISR(myBinarySem02Handle, &xHigherPriorityTaskWoken);
+	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -370,9 +392,37 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+	uint32_t timeStart;
+	uint8_t count;
   /* Infinite loop */
   for(;;)
   {
+		  switch(state)
+		  {
+		  case overflow:
+			  timeStart = HAL_GetTick();
+			  vTaskSuspend(myTask02Handle);
+			  vTaskSuspend(myTask03Handle);
+			  state = wait;
+		  case wait:
+			  if(HAL_GetTick() - timeStart > 1000)
+			  {
+				  //toggle_led
+				  timeStart  = HAL_GetTick();
+				  count++;
+				  if(count == 10)
+					  state = trans;
+			  }
+		  case trans:
+			  count = 0;
+			  vTaskResume(myTask02Handle);
+			  vTaskResume(myTask03Handle);
+			  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, 50);
+			  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+
+			  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, 50);
+			  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+		  }
     osDelay(1);
   }
   /* USER CODE END 5 */
@@ -391,7 +441,26 @@ void StartTask02(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  if(xSemaphoreTake(myBinarySem01Handle,2000) == pdTRUE)
+	  {
+		  if(uxQueueMessagesWaiting(myQueue01Handle) != 0)
+		  {
+			  xQueueSend(myQueue01Handle,f_recei_1,0);
+		  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, 50);
+		  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+		  }
+		  else
+		  {
+			  __HAL_DMA_DISABLE(&hdma_usart1_rx);
+			  state = overflow;
+		  }
+	  }
+	  else
+	  {
+
+	  }
+
+    osDelay(10);
   }
   /* USER CODE END StartTask02 */
 }
@@ -409,7 +478,25 @@ void StartTask03(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  if(xSemaphoreTake(myBinarySem02Handle,2000) == pdTRUE)
+	  {
+		  if(uxQueueMessagesWaiting(myQueue01Handle) != 0)
+		  {
+			  xQueueSend(myQueue01Handle,f_recei_2,0);
+		  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, 50);
+		  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+		  }
+		  else
+		  {
+			  __HAL_DMA_DISABLE(&hdma_usart2_rx);
+			  state = overflow;
+		  }
+	  }
+	  else
+	  {
+
+	  }
+	  osDelay(10);
   }
   /* USER CODE END StartTask03 */
 }
@@ -424,10 +511,15 @@ void StartTask03(void const * argument)
 void StartTask04(void const * argument)
 {
   /* USER CODE BEGIN StartTask04 */
+	uint8_t data[50];
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	if(xQueueReceive(myQueue01Handle, data, 2000) == pdTRUE)
+	{
+		HAL_UART_Transmit(&huart3, data, 50, 1000);
+	}
+	osDelay(10);
   }
   /* USER CODE END StartTask04 */
 }
