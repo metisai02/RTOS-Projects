@@ -27,8 +27,8 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-uint8_t f_recei_1[51] = {0};
-uint8_t f_recei_2[51] = {0};
+uint8_t f_recei_1[50] = {0};
+uint8_t f_recei_2[50] = {0};
 typedef enum
 {
 	overflow = 0,
@@ -172,7 +172,8 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  myQueue01Handle = xQueueCreate(20,sizeof(f_recei_1));
+  myQueue01Handle = xQueueCreate(30,sizeof(f_recei_1));
+
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, sizeof(f_recei_1));
   __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 
@@ -317,7 +318,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 2400;
+  huart3.Init.BaudRate = 1200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -419,6 +420,7 @@ void StartDefaultTask(void const * argument)
 			  vTaskSuspend(myTask02Handle);
 			  vTaskSuspend(myTask03Handle);
 			  state = wait;
+			  break;
 		  case wait:
 			  if(HAL_GetTick() - timeStart > 1000)
 			  {
@@ -428,6 +430,7 @@ void StartDefaultTask(void const * argument)
 				  if(count == 20)
 					  state = trans;
 			  }
+			  break;
 		  case trans:
 			  count = 0;
 			  vTaskResume(myTask02Handle);
@@ -437,6 +440,7 @@ void StartDefaultTask(void const * argument)
 
 			  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, sizeof(f_recei_1));
 			  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+			  break;
 		  }
 
 			if(xQueueReceive(myQueue01Handle, data, 0) == pdTRUE)
@@ -467,6 +471,7 @@ void StartTask02(void const * argument)
 	  {
 		  if(uxQueueSpacesAvailable(myQueue01Handle) != 0)
 		  {
+			  __HAL_DMA_DISABLE(&hdma_usart1_rx);
 			  xQueueSend(myQueue01Handle,f_recei_1,0);
 		  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, sizeof(f_recei_1));
 		  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
@@ -505,6 +510,7 @@ void StartTask03(void const * argument)
 	  {
 		  if(uxQueueSpacesAvailable(myQueue01Handle) != 0)
 		  {
+			  __HAL_DMA_DISABLE(&hdma_usart2_rx);
 			  xQueueSend(myQueue01Handle,f_recei_2,0);
 		  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, sizeof(f_recei_1));
 		  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
