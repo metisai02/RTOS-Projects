@@ -74,8 +74,8 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 void StartDefaultTask(void const * argument);
-void StartTask02(void const * argument);
-void StartTask03(void const * argument);
+void Sender1(void const * argument);
+void Sender2(void const * argument);
 void StartTask04(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -159,11 +159,11 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of myTask02 */
-  osThreadDef(myTask02, StartTask02, osPriorityNormal, 0, 128);
+  osThreadDef(myTask02, Sender1, osPriorityNormal, 0, 128);
   myTask02Handle = osThreadCreate(osThread(myTask02), NULL);
 
   /* definition and creation of myTask03 */
-  osThreadDef(myTask03, StartTask03, osPriorityNormal, 0, 128);
+  osThreadDef(myTask03, Sender2, osPriorityNormal, 0, 128);
   myTask03Handle = osThreadCreate(osThread(myTask03), NULL);
 
   /* definition and creation of myTask04 */
@@ -415,13 +415,13 @@ void StartDefaultTask(void const * argument)
   {
 		  switch(state)
 		  {
-		  case overflow:
+		  case overflow:	//Queue get overflow
 			  timeStart = HAL_GetTick();
 			  vTaskSuspend(myTask02Handle);
 			  vTaskSuspend(myTask03Handle);
 			  state = wait;
 			  break;
-		  case wait:
+		  case wait:	//wait 20s to send data out
 			  if(HAL_GetTick() - timeStart > 1000)
 			  {
 				  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -431,7 +431,7 @@ void StartDefaultTask(void const * argument)
 					  state = trans;
 			  }
 			  break;
-		  case trans:
+		  case trans:	// Runing
 			  count = 0;
 			  vTaskResume(myTask02Handle);
 			  vTaskResume(myTask03Handle);
@@ -456,12 +456,12 @@ void StartDefaultTask(void const * argument)
 
 /* USER CODE BEGIN Header_StartTask02 */
 /**
-* @brief Function implementing the myTask02 thread.
+* @brief The function implements the Sender1 Task.
 * @param argument: Not used
 * @retval None
 */
 /* USER CODE END Header_StartTask02 */
-void StartTask02(void const * argument)
+void Sender1(void const * argument)
 {
   /* USER CODE BEGIN StartTask02 */
   /* Infinite loop */
@@ -473,8 +473,8 @@ void StartTask02(void const * argument)
 		  {
 			  __HAL_DMA_DISABLE(&hdma_usart1_rx);
 			  xQueueSend(myQueue01Handle,f_recei_1,0);
-		  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, sizeof(f_recei_1));
-		  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, f_recei_1, sizeof(f_recei_1));
+			  __HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 		  }
 		  else
 		  {
@@ -494,15 +494,14 @@ void StartTask02(void const * argument)
 
 /* USER CODE BEGIN Header_StartTask03 */
 /**
-* @brief Function implementing the myTask03 thread.
+* @brief The function implements the Sender2 Task.
 * @param argument: Not used
 * @retval None
 */
 /* USER CODE END Header_StartTask03 */
-void StartTask03(void const * argument)
+void Sender2(void const * argument)
 {
   /* USER CODE BEGIN StartTask03 */
-	uint32_t check = 0;
   /* Infinite loop */
   for(;;)
   {
@@ -512,8 +511,8 @@ void StartTask03(void const * argument)
 		  {
 			  __HAL_DMA_DISABLE(&hdma_usart2_rx);
 			  xQueueSend(myQueue01Handle,f_recei_2,0);
-		  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, sizeof(f_recei_1));
-		  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+			  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, f_recei_2, sizeof(f_recei_1));
+		  	  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
 		  }
 		  else
 		  {

@@ -7,7 +7,7 @@ main.c:341:13:MX_DMA_Init	1
 main.c:362:13:MX_GPIO_Init	1
 main.c:389:6:HAL_UARTEx_RxEventCallback	4
 main.c:407:6:StartDefaultTask	8
-main.c:464:6:StartTask02	3
-main.c:502:6:StartTask03	3
-main.c:540:6:StartTask04	2
-main.c:560:6:Error_Handler	1
+main.c:464:6:Sender1	3
+main.c:502:6:Sender2	3
+main.c:539:6:StartTask04	2
+main.c:559:6:Error_Handler	1
